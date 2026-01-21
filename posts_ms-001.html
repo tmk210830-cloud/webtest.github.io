@@ -1,0 +1,283 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artist Records</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            opacity: 0.75;
+            position: fixed; /* Make it fixed */
+            top: 20px; /* Position from top */
+            right: 20px; /* Position from right */
+            z-index: 1000; /* Ensure it stays on top */
+            background-color: #fff; /* Add a background for visibility */
+            padding: 10px; /* Add some padding */
+            border-radius: 8px; /* Rounded corners */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Add a subtle shadow */
+        }
+        .controls button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            background-color: #6c757d;
+            color: white;
+        }
+        .artist-record {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .artist-record h2 {
+            margin: 0;
+            color: #333;
+            cursor: pointer;
+        }
+        .artist-record .actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .artist-record button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .artist-record .open-page-button {
+            background-color: #007bff;
+            color: white;
+        }
+        .artist-record .like-button {
+            background-color: #28a745;
+            color: white;
+        }
+        .artist-record .dislike-button {
+            background-color: #dc3545;
+            color: white;
+        }
+        .artist-record .like-button[disabled],
+        .artist-record .dislike-button[disabled] {
+            background-color: #888888;
+            color: #333333;
+            cursor: default;
+        }
+        .artist-record .points {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-left: 10px;
+        }
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+    <script src="artist-info.js"></script>
+    <script>
+        let p = 1;
+        let artistList = getArtistList(p);
+        const JSON_FILE_NAME = 'artist-eval.json';
+
+        function getArtistList(pg) {
+            const md = (main_data ? main_data[pg - 1] : {"id":"_","names":[]});
+            const artistNames = md.names;
+            return artistNames.map((e, i) => {
+                return {
+                    "name": e,
+                    "url": `https://danbooru.donmai.us/posts?tags=${e}`,
+                    "visited": false,
+                    "points": 0
+                };
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>Artist Records</h1>
+    <div class="controls">
+        <input type="number" id="pageNumber" style="width:2rem" value="1" />
+        <button onclick="pageToGo()">🚀</button>
+        <button onclick="downloadPoints()">💾</button>
+        <input type="file" id="uploadInput" accept=".json" onchange="uploadPoints(event)">
+        <button onclick="document.getElementById('uploadInput').click()">📂</button>
+    </div>
+    <div id="artist-list">
+    </div>
+
+    <script>
+            function loadArtistLst() {
+                p = parseInt(document.querySelector('#pageNumber').value);
+                artistList = getArtistList(p);
+                document.querySelector('#artist-list').innerHTML = '';
+                artistList.forEach((e, i) => {
+                    const html = `
+                    <div class="artist-record" id="artist_record_${i + 1}" data-artist-name="${e.name}">
+                        <h2 class="go-artist-page" data-artist="${e.name}" data-artist-url="${e.url}">${e.name}</h2>
+                        <div class="actions">
+                            <button class="open-page-button go-artist-page" data-artist="${e.name}" data-artist-url="${e.url}">👉</button>
+                            <button class="like-button eval_${e.name}" data-artist="${e.name}"${e.visited ? '' : ' disabled'}>👍</button>
+                            <button class="dislike-button eval_${e.name}" data-artist="${e.name}"${e.visited ? '' : ' disabled'}>👎</button>
+                            <span class="points" id="points_${e.name}">${e.points}</span>
+                        </div>
+                    </div>
+                    `;
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html.trim();
+                    document.querySelector('#artist-list').append(tempDiv.firstElementChild);
+                });
+            }
+
+            loadArtistLst();
+            
+            document.addEventListener('DOMContentLoaded', () => {
+                const goArtistPageButtons = document.querySelectorAll('.go-artist-page');
+                const likeButtons = document.querySelectorAll('.like-button');
+                const dislikeButtons = document.querySelectorAll('.dislike-button');
+                
+                function getArtistVisited(artistName) {
+                    return localStorage.getItem(`artist_visited_${artistName}`);
+                };
+
+                window.updateArtistVisiteds = function(artistName, isVisit) {
+                    localStorage.setItem(`artist_visited_${artistName}`, isVisit);
+                    const evals = document.getElementsByClassName(`eval_${artistName}`);
+                    if (evals && evals.length > 0) {
+                        Array.from(evals).forEach((e, i) => isVisit ? e.removeAttribute('disabled') : e.setAttribute('disabled'));
+                    }                    
+                };
+
+                // Function to get points for an artist from localStorage
+                function getArtistPoints(artistName) {
+                    const storedPoints = localStorage.getItem(`artist_points_${artistName}`);
+                    return storedPoints ? parseInt(storedPoints, 10) : 0;
+                };
+
+                // Function to update points for an artist in localStorage and display
+                window.updateArtistPoints = function(artistName, newPoints) {
+                    localStorage.setItem(`artist_points_${artistName}`, newPoints);
+                    const pointsSpan = document.getElementById(`points_${artistName}`);
+                    if (pointsSpan) {
+                        pointsSpan.textContent = newPoints;
+                    }
+                };
+
+                // Initialize points for all artists on page load
+                document.querySelectorAll('.artist-record').forEach(recordDiv => {
+                    const artistName = recordDiv.getAttribute('data-artist-name');
+                    const currentPoints = getArtistPoints(artistName);
+                    updateArtistPoints(artistName, currentPoints); // Display initial points
+                });
+
+                goArtistPageButtons.forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const artistName = event.target.getAttribute('data-artist');
+                        const url = event.target.getAttribute('data-artist-url');
+                        window.open(url, '_blank');
+                        updateArtistVisiteds(artistName, true);
+                        const evals = document.getElementsByClassName(`eval_${artistName}`);
+                        if (evals && evals.length > 0) 
+                            Array.from(evals).forEach((e, i) => e.removeAttribute('disabled'));
+                    });
+                }); 
+
+                // Event listener for Like buttons
+                likeButtons.forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const artistName = event.target.getAttribute('data-artist');
+                        let currentPoints = getArtistPoints(artistName);
+                        currentPoints++;
+                        updateArtistPoints(artistName, currentPoints);
+                    });
+                }); // Missing closing curly brace and semicolon here, added
+
+                // Event listener for Dislike buttons
+                dislikeButtons.forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const artistName = event.target.getAttribute('data-artist');
+                        let currentPoints = getArtistPoints(artistName);
+                        currentPoints--;
+                        updateArtistPoints(artistName, currentPoints);
+                    });
+                }); // Missing closing curly brace and semicolon here, added
+            });
+
+        window.pageToGo = function(event) {
+            loadArtistLst();
+        };
+
+        // Function to download points as JSON
+        window.downloadPoints = function() {
+            const artistEvals = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('artist_visited_')) {
+                    const artistName = key.substring('artist_visited_'.length);
+                    artistEvals[artistName] = artistEvals[artistName] || {};
+                    artistEvals[artistName]['visited'] = localStorage.getItem(key) == 'true';
+                }
+                if (key.startsWith('artist_points_')) {
+                    const artistName = key.substring('artist_points_'.length);
+                    artistEvals[artistName] = artistEvals[artistName] || {};
+                    artistEvals[artistName]['points'] = parseInt(localStorage.getItem(key), 10);
+                }
+            }
+            const dataStr = JSON.stringify(artistEvals, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = JSON_FILE_NAME;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+
+        // Function to upload points from JSON
+        window.uploadPoints = function(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const loadedPoints = JSON.parse(e.target.result);
+                    for (const artistName in loadedPoints) {
+                        if (Object.hasOwnProperty.call(loadedPoints, artistName)) {
+                            const isVisit = loadedPoints[artistName].visited;
+                            const points = loadedPoints[artistName].points;
+                            if (!!isVisit) {
+                                updateArtistVisiteds(artistName, isVisit);
+                            }
+                            updateArtistPoints(artistName, points);
+                        }
+                    }
+                    alert('Points loaded successfully!');
+                } catch (error) {
+                    alert('Failed to load points: Invalid JSON file.');
+                    console.error('Error parsing JSON:', error);
+                }
+            };
+            reader.readAsText(file);
+        };
+    </script>
+</body>
+</html>
