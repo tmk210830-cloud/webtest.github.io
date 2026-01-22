@@ -185,7 +185,7 @@
                     updateArtistPoints(artistName, currentPoints); // Display initial points
                 });
 
-                goArtistPageButtons.forEach(button => {
+                document.querySelectorAll('.go-artist-page').forEach(button => {
                     button.addEventListener('click', (event) => {
                         const artistName = event.target.getAttribute('data-artist');
                         const url = event.target.getAttribute('data-artist-url');
@@ -198,7 +198,7 @@
                 }); 
 
                 // Event listener for Like buttons
-                likeButtons.forEach(button => {
+                document.querySelectorAll('.like-button').forEach(button => {
                     button.addEventListener('click', (event) => {
                         const artistName = event.target.getAttribute('data-artist');
                         let currentPoints = getArtistPoints(artistName);
@@ -208,7 +208,7 @@
                 }); // Missing closing curly brace and semicolon here, added
 
                 // Event listener for Dislike buttons
-                dislikeButtons.forEach(button => {
+                document.querySelectorAll('.dislike-button').forEach(button => {
                     button.addEventListener('click', (event) => {
                         const artistName = event.target.getAttribute('data-artist');
                         let currentPoints = getArtistPoints(artistName);
