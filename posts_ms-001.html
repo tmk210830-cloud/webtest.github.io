@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Artist Records</title>
     <style>
         body {
@@ -107,119 +106,106 @@
                 };
             });
         }
-    </script>
-</head>
-<body>
-    <h1>Artist Records</h1>
-    <div class="controls">
-        <input type="number" id="pageNumber" style="width:2rem" value="1" />
-        <button onclick="pageToGo()">🚀</button>
-        <button onclick="downloadPoints()">💾</button>
-        <input type="file" id="uploadInput" accept=".json" onchange="uploadPoints(event)">
-        <button onclick="document.getElementById('uploadInput').click()">📂</button>
-    </div>
-    <div id="artist-list">
-    </div>
 
-    <script>
-            function loadArtistLst() {
-                p = parseInt(document.querySelector('#pageNumber').value);
-                artistList = getArtistList(p);
-                document.querySelector('#artist-list').innerHTML = '';
-                artistList.forEach((e, i) => {
-                    const html = `
-                    <div class="artist-record" id="artist_record_${i + 1}" data-artist-name="${e.name}">
-                        <h2 class="go-artist-page" data-artist="${e.name}" data-artist-url="${e.url}">${e.name}</h2>
-                        <div class="actions">
-                            <button class="open-page-button go-artist-page" data-artist="${e.name}" data-artist-url="${e.url}">👉</button>
-                            <button class="like-button eval_${e.name}" data-artist="${e.name}"${e.visited ? '' : ' disabled'}>👍</button>
-                            <button class="dislike-button eval_${e.name}" data-artist="${e.name}"${e.visited ? '' : ' disabled'}>👎</button>
-                            <span class="points" id="points_${e.name}">${e.points}</span>
-                        </div>
-                    </div>
-                    `;
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = html.trim();
-                    document.querySelector('#artist-list').append(tempDiv.firstElementChild);
-                });
+        // LocalStorage helpers (moved to global scope so all handlers can use them)
+        function getArtistVisited(artistName) {
+            return localStorage.getItem(`artist_visited_${artistName}`);
+        }
+
+        window.updateArtistVisiteds = function(artistName, isVisit) {
+            localStorage.setItem(`artist_visited_${artistName}`, isVisit);
+            const evals = document.getElementsByClassName(`eval_${artistName}`);
+            if (evals && evals.length > 0) {
+                Array.from(evals).forEach((e, i) => isVisit ? e.removeAttribute('disabled') : e.setAttribute('disabled', ''));
             }
+        };
 
-            loadArtistLst();
-            
-            document.addEventListener('DOMContentLoaded', () => {
-                const goArtistPageButtons = document.querySelectorAll('.go-artist-page');
-                const likeButtons = document.querySelectorAll('.like-button');
-                const dislikeButtons = document.querySelectorAll('.dislike-button');
-                
-                function getArtistVisited(artistName) {
-                    return localStorage.getItem(`artist_visited_${artistName}`);
-                };
+        function getArtistPoints(artistName) {
+            const storedPoints = localStorage.getItem(`artist_points_${artistName}`);
+            return storedPoints ? parseInt(storedPoints, 10) : 0;
+        }
 
-                window.updateArtistVisiteds = function(artistName, isVisit) {
-                    localStorage.setItem(`artist_visited_${artistName}`, isVisit);
-                    const evals = document.getElementsByClassName(`eval_${artistName}`);
-                    if (evals && evals.length > 0) {
-                        Array.from(evals).forEach((e, i) => isVisit ? e.removeAttribute('disabled') : e.setAttribute('disabled'));
-                    }                    
-                };
+        window.updateArtistPoints = function(artistName, newPoints) {
+            localStorage.setItem(`artist_points_${artistName}`, newPoints);
+            const pointsSpan = document.getElementById(`points_${artistName}`);
+            if (pointsSpan) {
+                pointsSpan.textContent = newPoints;
+            }
+        };
 
-                // Function to get points for an artist from localStorage
-                function getArtistPoints(artistName) {
-                    const storedPoints = localStorage.getItem(`artist_points_${artistName}`);
-                    return storedPoints ? parseInt(storedPoints, 10) : 0;
-                };
-
-                // Function to update points for an artist in localStorage and display
-                window.updateArtistPoints = function(artistName, newPoints) {
-                    localStorage.setItem(`artist_points_${artistName}`, newPoints);
-                    const pointsSpan = document.getElementById(`points_${artistName}`);
-                    if (pointsSpan) {
-                        pointsSpan.textContent = newPoints;
-                    }
-                };
-
-                // Initialize points for all artists on page load
-                document.querySelectorAll('.artist-record').forEach(recordDiv => {
-                    const artistName = recordDiv.getAttribute('data-artist-name');
-                    const currentPoints = getArtistPoints(artistName);
-                    updateArtistPoints(artistName, currentPoints); // Display initial points
-                });
-
-                document.querySelectorAll('.go-artist-page').forEach(button => {
-                    button.addEventListener('click', (event) => {
-                        const artistName = event.target.getAttribute('data-artist');
-                        const url = event.target.getAttribute('data-artist-url');
-                        window.open(url, '_blank');
-                        updateArtistVisiteds(artistName, true);
-                        const evals = document.getElementsByClassName(`eval_${artistName}`);
-                        if (evals && evals.length > 0) 
-                            Array.from(evals).forEach((e, i) => e.removeAttribute('disabled'));
-                    });
-                }); 
-
-                // Event listener for Like buttons
-                document.querySelectorAll('.like-button').forEach(button => {
-                    button.addEventListener('click', (event) => {
-                        const artistName = event.target.getAttribute('data-artist');
-                        let currentPoints = getArtistPoints(artistName);
-                        currentPoints++;
-                        updateArtistPoints(artistName, currentPoints);
-                    });
-                }); // Missing closing curly brace and semicolon here, added
-
-                // Event listener for Dislike buttons
-                document.querySelectorAll('.dislike-button').forEach(button => {
-                    button.addEventListener('click', (event) => {
-                        const artistName = event.target.getAttribute('data-artist');
-                        let currentPoints = getArtistPoints(artistName);
-                        currentPoints--;
-                        updateArtistPoints(artistName, currentPoints);
-                    });
-                }); // Missing closing curly brace and semicolon here, added
+        // Render artist list (generates DOM)
+        function loadArtistLst() {
+            p = parseInt(document.querySelector('#pageNumber').value);
+            artistList = getArtistList(p);
+            const container = document.querySelector('#artist-list');
+            container.innerHTML = '';
+            artistList.forEach((e, i) => {
+                // If a visited state exists in localStorage, reflect it in the generated markup by enabling/disabling buttons after render.
+                const html = `
+                <div class="artist-record" id="artist_record_${i + 1}" data-artist-name="${e.name}">
+                    <h2 class="go-artist-page" data-artist="${e.name}" data-artist-url="${e.url}">${e.name}</h2>
+                    <div class="actions">
+                        <button class="open-page-button go-artist-page" data-artist="${e.name}" data-artist-url="${e.url}">👉</button>
+                        <button class="like-button eval_${e.name}" data-artist="${e.name}" ${getArtistVisited(e.name) === 'true' ? '' : 'disabled'}>👍</button>
+                        <button class="dislike-button eval_${e.name}" data-artist="${e.name}" ${getArtistVisited(e.name) === 'true' ? '' : 'disabled'}>👎</button>
+                        <span class="points" id="points_${e.name}">${getArtistPoints(e.name)}</span>
+                    </div>
+                </div>
+                `;
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html.trim();
+                container.appendChild(tempDiv.firstElementChild);
             });
+        }
 
+        // Initialize the page once (render + attach delegation)
+        loadArtistLst();
+
+        // Event delegation: attach a single click handler to #artist-list
+        (function attachDelegatedHandlers() {
+            const container = document.getElementById('artist-list');
+            container.addEventListener('click', (event) => {
+                const btn = event.target.closest('.go-artist-page, .like-button, .dislike-button');
+                if (!btn || !container.contains(btn)) return;
+
+                // Use getAttribute because dataset names with hyphens may vary depending on element
+                const artistName = btn.getAttribute('data-artist');
+                const url = btn.getAttribute('data-artist-url');
+
+                if (btn.classList.contains('go-artist-page')) {
+                    // Open in new tab and mark visited
+                    if (url) window.open(url, '_blank');
+                    updateArtistVisiteds(artistName, true);
+                    // Ensure points display exists
+                    const currentPoints = getArtistPoints(artistName);
+                    updateArtistPoints(artistName, currentPoints);
+                    return;
+                }
+
+                // If like/dislike are disabled, ignore clicks
+                if (btn.disabled) return;
+
+                if (btn.classList.contains('like-button')) {
+                    let currentPoints = getArtistPoints(artistName);
+                    currentPoints++;
+                    updateArtistPoints(artistName, currentPoints);
+                    return;
+                }
+
+                if (btn.classList.contains('dislike-button')) {
+                    let currentPoints = getArtistPoints(artistName);
+                    currentPoints--;
+                    updateArtistPoints(artistName, currentPoints);
+                    return;
+                }
+            });
+        })();
+
+        // Expose page navigation
         window.pageToGo = function(event) {
             loadArtistLst();
+            // After re-render we don't need to re-bind events (delegation covers it).
+            // But make sure points and visited states are displayed correctly (loadArtistLst already used getArtistVisited/getArtistPoints).
         };
 
         // Function to download points as JSON
@@ -270,6 +256,8 @@
                             updateArtistPoints(artistName, points);
                         }
                     }
+                    // After loading, re-render current page so buttons/points in DOM reflect loaded state
+                    loadArtistLst();
                     alert('Points loaded successfully!');
                 } catch (error) {
                     alert('Failed to load points: Invalid JSON file.');
@@ -279,5 +267,17 @@
             reader.readAsText(file);
         };
     </script>
+</head>
+<body>
+    <h1>Artist Records</h1>
+    <div class="controls">
+        <input type="number" id="pageNumber" style="width:2rem" value="1" />
+        <button onclick="pageToGo()">🚀</button>
+        <button onclick="downloadPoints()">💾</button>
+        <input type="file" id="uploadInput" accept=".json" onchange="uploadPoints(event)">
+        <button onclick="document.getElementById('uploadInput').click()">📂</button>
+    </div>
+    <div id="artist-list">
+    </div>
 </body>
 </html>
