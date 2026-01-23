@@ -91,12 +91,12 @@
     <script src="artist-info.js"></script>
     <script>
         let p = 1;
-        let artistList = getArtistList(p);
+        let artistList = [];
         const JSON_FILE_NAME = 'artist-eval.json';
 
         function getArtistList(pg) {
-            const md = (main_data ? main_data[pg - 1] : {"id":"_","names":[]});
-            const artistNames = md.names;
+            const md = (typeof main_data !== 'undefined' && main_data ? main_data[pg - 1] : {"id":"_","names":[]});
+            const artistNames = md.names || [];
             return artistNames.map((e, i) => {
                 return {
                     "name": e,
@@ -135,12 +135,14 @@
 
         // Render artist list (generates DOM)
         function loadArtistLst() {
-            p = parseInt(document.querySelector('#pageNumber').value);
+            const pageInput = document.querySelector('#pageNumber');
+            // Defensive: if pageInput is missing, default to 1
+            p = pageInput ? parseInt(pageInput.value, 10) || 1 : 1;
             artistList = getArtistList(p);
             const container = document.querySelector('#artist-list');
+            if (!container) return;
             container.innerHTML = '';
             artistList.forEach((e, i) => {
-                // If a visited state exists in localStorage, reflect it in the generated markup by enabling/disabling buttons after render.
                 const html = `
                 <div class="artist-record" id="artist_record_${i + 1}" data-artist-name="${e.name}">
                     <h2 class="go-artist-page" data-artist="${e.name}" data-artist-url="${e.url}">${e.name}</h2>
@@ -158,54 +160,53 @@
             });
         }
 
-        // Initialize the page once (render + attach delegation)
-        loadArtistLst();
-
-        // Event delegation: attach a single click handler to #artist-list
-        (function attachDelegatedHandlers() {
+        // Event delegation setup (named function, will be called after DOMContentLoaded)
+        function attachDelegatedHandlers() {
             const container = document.getElementById('artist-list');
-            container.addEventListener('click', (event) => {
-                const btn = event.target.closest('.go-artist-page, .like-button, .dislike-button');
-                if (!btn || !container.contains(btn)) return;
+            if (!container) return;
+            // Remove any existing handler (avoid double-binding when called multiple times)
+            container.removeEventListener('click', delegatedClickHandler);
+            container.addEventListener('click', delegatedClickHandler);
+        }
 
-                // Use getAttribute because dataset names with hyphens may vary depending on element
-                const artistName = btn.getAttribute('data-artist');
-                const url = btn.getAttribute('data-artist-url');
+        // Central delegated click handler (separated so it can be removed if needed)
+        function delegatedClickHandler(event) {
+            const container = document.getElementById('artist-list');
+            const btn = event.target.closest('.go-artist-page, .like-button, .dislike-button');
+            if (!btn || !container || !container.contains(btn)) return;
 
-                if (btn.classList.contains('go-artist-page')) {
-                    // Open in new tab and mark visited
-                    if (url) window.open(url, '_blank');
-                    updateArtistVisiteds(artistName, true);
-                    // Ensure points display exists
-                    const currentPoints = getArtistPoints(artistName);
-                    updateArtistPoints(artistName, currentPoints);
-                    return;
-                }
+            const artistName = btn.getAttribute('data-artist');
+            const url = btn.getAttribute('data-artist-url');
 
-                // If like/dislike are disabled, ignore clicks
-                if (btn.disabled) return;
+            if (btn.classList.contains('go-artist-page')) {
+                if (url) window.open(url, '_blank');
+                updateArtistVisiteds(artistName, true);
+                const currentPoints = getArtistPoints(artistName);
+                updateArtistPoints(artistName, currentPoints);
+                return;
+            }
 
-                if (btn.classList.contains('like-button')) {
-                    let currentPoints = getArtistPoints(artistName);
-                    currentPoints++;
-                    updateArtistPoints(artistName, currentPoints);
-                    return;
-                }
+            if (btn.disabled) return;
 
-                if (btn.classList.contains('dislike-button')) {
-                    let currentPoints = getArtistPoints(artistName);
-                    currentPoints--;
-                    updateArtistPoints(artistName, currentPoints);
-                    return;
-                }
-            });
-        })();
+            if (btn.classList.contains('like-button')) {
+                let currentPoints = getArtistPoints(artistName);
+                currentPoints++;
+                updateArtistPoints(artistName, currentPoints);
+                return;
+            }
+
+            if (btn.classList.contains('dislike-button')) {
+                let currentPoints = getArtistPoints(artistName);
+                currentPoints--;
+                updateArtistPoints(artistName, currentPoints);
+                return;
+            }
+        }
 
         // Expose page navigation
         window.pageToGo = function(event) {
             loadArtistLst();
-            // After re-render we don't need to re-bind events (delegation covers it).
-            // But make sure points and visited states are displayed correctly (loadArtistLst already used getArtistVisited/getArtistPoints).
+            // delegation covers click handlers, so no rebinding needed
         };
 
         // Function to download points as JSON
@@ -266,6 +267,12 @@
             };
             reader.readAsText(file);
         };
+
+        // Wait for DOM ready before first render and binding
+        document.addEventListener('DOMContentLoaded', () => {
+            loadArtistLst();
+            attachDelegatedHandlers();
+        });
     </script>
 </head>
 <body>
